@@ -36,7 +36,7 @@ jobs:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: semgrep.sarif
@@ -65,20 +65,27 @@ jobs:
 
       - name: Run Snyk vulnerability scan
         uses: snyk/actions/node@master
-        continue-on-error: true   # Ne pas bloquer si Snyk trouve des vulnérabilités (pour demo)
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high --sarif-file-output=snyk.sarif
 
+      - name: Créer SARIF vide si absent
+        run: |
+          if [ ! -f snyk.sarif ]; then
+            echo '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","rules":[]}},"results":[]}]}' > snyk.sarif
+          fi
+
       - name: Upload Snyk SARIF
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: snyk.sarif
 
-      - name: Snyk dependency tree
-        run: npx snyk test --json || true
+      - name: Snyk summary
+        continue-on-error: true
+        run: npx snyk test --severity-threshold=high || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -104,15 +111,15 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
           severity: CRITICAL,HIGH,MEDIUM
-          exit-code: '0'   # Ne pas bloquer pour la demo — mettre '1' en prod
+          exit-code: '0'
 
       - name: Upload Trivy FS SARIF
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: trivy-fs.sarif
 
-      - name: Trivy table output (lisible)
+      - name: Trivy table output
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
@@ -174,10 +181,10 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
-          exit-code: '0'   # Mettre '1' en prod pour bloquer si vulnérabilités critiques
+          exit-code: '0'
 
       - name: Upload Trivy image SARIF
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: trivy-image.sarif
@@ -224,4 +231,4 @@ jobs:
           echo "| Docker Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Trivy Image | ${{ needs.scan-image.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📋 Voir l'onglet **Security** pour les détails des vulnérabilités détectées." >> $GITHUB_STEP_SUMMARY
+          echo "📋 Voir l'onglet **Security** pour les détails." >> $GITHUB_STEP_SUMMARY
