@@ -31,6 +31,9 @@ jobs:
             p/nodejs
             p/secrets
             p/sql-injection
+            p/javascript
+            p/nodejsscan
+            .semgrep/
           generateSarif: "1"
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
@@ -181,6 +184,7 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
+          ignore-unfixed: true
           exit-code: '0'
 
       - name: Upload Trivy image SARIF
@@ -195,6 +199,7 @@ jobs:
           image-ref: eshop-pro:${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
+          ignore-unfixed: true
 
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@master

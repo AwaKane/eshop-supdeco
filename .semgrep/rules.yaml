@@ -1,0 +1,43 @@
+rules:
+  - id: sql-injection-concatenation
+    patterns:
+      - pattern: |
+          $Q = "..." + $INPUT + "..."
+      - pattern: |
+          db.get("..." + $INPUT + "...", ...)
+      - pattern: |
+          db.run("..." + $INPUT + "...", ...)
+      - pattern: |
+          db.all("..." + $INPUT + "...", ...)
+    message: "SQL Injection détectée — utiliser des requêtes préparées"
+    languages: [javascript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-89
+      owasp: A03:2021
+
+  - id: hardcoded-secret
+    patterns:
+      - pattern: |
+          const $VAR = "$SECRET"
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (JWT_SECRET|API_KEY|STRIPE_KEY|PASSWORD|TOKEN)
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: .{8,}
+    message: "Secret hardcodé détecté — utiliser les variables d'environnement"
+    languages: [javascript]
+    severity: ERROR
+    metadata:
+      cwe: CWE-798
+
+  - id: idor-missing-user-check
+    pattern: |
+      db.get('SELECT * FROM orders WHERE id = ?', [$ID], ...)
+    message: "IDOR potentiel — vérifier que la ressource appartient à req.user.id"
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-639
+      owasp: A01:2021
