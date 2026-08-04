@@ -2,8 +2,8 @@
 // TP DevSecOps SUP de CO Dakar — Cours 2INF2311
 // ATTENTION : Ce code contient des vulnérabilités intentionnelles à des fins pédagogiques
 
-const express = require('express');
-const dotenv  = require('dotenv');
+const express = require("express");
+const dotenv = require("dotenv");
 
 dotenv.config();
 
@@ -15,23 +15,23 @@ app.use(express.urlencoded({ extended: true }));
 // Fix : app.use(require('helmet')());
 
 // ❌ VULN 2 — Secret hardcodé (détectable par GitLeaks/Semgrep)
-const JWT_SECRET   = "super_secret_jwt_key_123";
-const DB_PASSWORD  = "admin1234";
-const API_KEY      = "sk_test_EXEMPLE_INTENTIONNELLEMENT_VULNERABLE";
-const STRIPE_KEY   = "sk_live_EXEMPLE_INTENTIONNELLEMENT_VULNERABLE";
+const JWT_SECRET = process.env.JWT_SECRET;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const API_KEY = process.env.API_KEY;
+const STRIPE_KEY = process.env.STRIPE_KEY;
 
 // ❌ VULN 3 — CORS trop permissif
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*'); // Jamais '*' avec auth !
-  res.header('Access-Control-Allow-Headers', '*');
+  res.header("Access-Control-Allow-Origin", "*"); // Jamais '*' avec auth !
+  res.header("Access-Control-Allow-Headers", "*");
   next();
 });
 
 // Routes
-app.use('/api/auth',     require('./routes/auth'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/orders',   require('./routes/orders'));
-app.use('/api/users',    require('./routes/users'));
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/products", require("./routes/products"));
+app.use("/api/orders", require("./routes/orders"));
+app.use("/api/users", require("./routes/users"));
 
 // ❌ VULN 4 — Stack trace exposée en production
 app.use((err, req, res, next) => {
