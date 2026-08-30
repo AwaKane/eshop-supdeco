@@ -1,23 +1,28 @@
-# ❌ Dockerfile NON sécurisé — vulnérabilités intentionnelles pour le TP DevSecOps
-# Les étudiants doivent identifier et corriger ces problèmes
+# ✅ Dockerfile sécurisé — E-Shop Pro
 
-# ❌ VULN 1 — Image de base non spécifique (latest = non reproductible)
-FROM node:18
-
-# ❌ VULN 2 — Exécution en tant que root
-# Fix : USER node
+# ✅ Image de base pinnée (version exacte + variante alpine = surface d'attaque réduite et build reproductible)
+FROM node:18.20.4-alpine3.20
 
 WORKDIR /app
 
-# ❌ VULN 3 — Copie de TOUT le répertoire (inclut .env, .git, node_modules)
-COPY . .
+# ✅ On copie d'abord uniquement les manifests : meilleur cache Docker, et on isole
+#    l'installation des dépendances du reste du code source
+COPY package.json package-lock.json ./
 
-# ❌ VULN 4 — npm install au lieu de npm ci (non reproductible)
-RUN npm install
+# ✅ npm ci au lieu de npm install : installation strictement reproductible depuis
+#    package-lock.json (pas de résolution de version au moment du build), et --omit=dev
+#    exclut les dépendances de développement de l'image finale
+RUN npm ci --omit=dev
 
-# ❌ VULN 5 — Port debug exposé
+# ✅ Copie du code source uniquement (le reste — .env, .git, node_modules, .semgrep,
+#    .github — est exclu via .dockerignore, voir fichier associé)
+COPY src ./src
+
+# ✅ Utilisateur non-root fourni nativement par l'image officielle node:alpine (uid 1000)
+USER node
+
+# ✅ Seul le port applicatif est exposé — plus de port de debug 9229
 EXPOSE 3000
-EXPOSE 9229
 
-# ❌ VULN 6 — Démarrage en mode debug (--inspect expose le debugger)
-CMD ["node", "--inspect=0.0.0.0:9229", "src/server.js"]
+# ✅ Démarrage normal, sans --inspect (le mode debug ne doit jamais tourner en production)
+CMD ["node", "src/server.js"]

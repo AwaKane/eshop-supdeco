@@ -1,0 +1,11 @@
+.env
+.env.example
+.git
+.gitignore
+node_modules
+npm-debug.log
+*.md
+.semgrep
+.github
+.semgrep_test
+eshop.db

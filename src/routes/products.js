@@ -1,40 +1,53 @@
 // Route produits — vulnérabilités intentionnelles
-const express = require('express');
-const db      = require('../config/database');
-const router  = express.Router();
+const express = require("express");
+const db = require("../config/database");
+const router = express.Router();
 
-// ❌ VULN 1 — SQL Injection sur la recherche
-router.get('/search', (req, res) => {
+// ✅ CORRIGÉ — Requête paramétrée, plus de concaténation ni de fuite de la query en erreur
+router.get("/search", (req, res) => {
   const { q } = req.query;
+  const like = `%${q}%`;
 
-  // ❌ Concaténation directe → SQLi
-  const query = `SELECT * FROM products WHERE name LIKE '%${q}%' OR description LIKE '%${q}%'`;
-
-  db.all(query, (err, products) => {
-    if (err) return res.status(500).json({ error: err.message, query }); // ❌ Query exposée
-    res.json(products);
-  });
+  db.all(
+    "SELECT * FROM products WHERE name LIKE ? OR description LIKE ?",
+    [like, like],
+    (err, products) => {
+      if (err) return res.status(500).json({ error: "Erreur serveur" });
+      res.json(products);
+    },
+  );
 });
 
-// ❌ VULN 2 — Mass Assignment : req.body appliqué directement
-router.put('/:id', (req, res) => {
-  const updates = req.body; // ❌ L'attaquant peut passer isAdmin:true, price:0, etc.
+// ✅ CORRIGÉ — Whitelist des champs autorisés + requête paramétrée
+const _ = require("lodash");
+const ALLOWED_PRODUCT_FIELDS = ["name", "description", "price", "stock"];
 
-  const fields = Object.keys(updates)
-    .map(k => `${k} = '${updates[k]}'`)  // ❌ Injection SQL possible
-    .join(', ');
+router.put("/:id", (req, res) => {
+  const updates = _.pick(req.body, ALLOWED_PRODUCT_FIELDS); // ✅ Seuls ces champs peuvent être modifiés
+  const keys = Object.keys(updates);
 
-  db.run(`UPDATE products SET ${fields} WHERE id = ${req.params.id}`,
-    function(err) {
+  if (keys.length === 0) {
+    return res
+      .status(400)
+      .json({ error: "Aucun champ valide à mettre à jour" });
+  }
+
+  const setClause = keys.map((k) => `${k} = ?`).join(", "); // ✅ Noms de colonnes fixes (whitelist), jamais de valeurs utilisateur ici
+  const values = keys.map((k) => updates[k]);
+
+  db.run(
+    `UPDATE products SET ${setClause} WHERE id = ?`,
+    [...values, req.params.id],
+    function (err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: 'Produit mis à jour', changes: this.changes });
-    }
+      res.json({ message: "Produit mis à jour", changes: this.changes });
+    },
   );
 });
 
 // Liste des produits — pas d'auth requise
-router.get('/', (req, res) => {
-  db.all('SELECT * FROM products', (err, products) => {
+router.get("/", (req, res) => {
+  db.all("SELECT * FROM products", (err, products) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(products);
   });
