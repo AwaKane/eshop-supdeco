@@ -35,6 +35,10 @@ router.put("/:id", (req, res) => {
   const setClause = keys.map((k) => `${k} = ?`).join(", "); // ✅ Noms de colonnes fixes (whitelist), jamais de valeurs utilisateur ici
   const values = keys.map((k) => updates[k]);
 
+  // nosemgrep: sql-injection-template-literal
+  // Faux positif : setClause est construit UNIQUEMENT à partir de ALLOWED_PRODUCT_FIELDS
+  // (whitelist figée ligne 23), jamais depuis une entrée utilisateur brute. Les valeurs,
+  // elles, passent bien par des placeholders '?' paramétrés ci-dessous.
   db.run(
     `UPDATE products SET ${setClause} WHERE id = ?`,
     [...values, req.params.id],
