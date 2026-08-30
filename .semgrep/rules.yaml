@@ -1,41 +1,70 @@
 rules:
-  - id: sql-injection-concatenation
+  - id: sql-injection-template-literal
     patterns:
-      - pattern: |
-          $Q = "..." + $INPUT + "..."
-      - pattern: |
-          db.get("..." + $INPUT + "...", ...)
-      - pattern: |
-          db.run("..." + $INPUT + "...", ...)
-      - pattern: |
-          db.all("..." + $INPUT + "...", ...)
-    message: "SQL Injection détectée — utiliser des requêtes préparées"
+      - pattern-either:
+          - pattern: db.all(`...${$INPUT}...`, ...)
+          - pattern: db.get(`...${$INPUT}...`, ...)
+          - pattern: db.run(`...${$INPUT}...`, ...)
+          - pattern: |
+              const $Q = `...${$INPUT}...`;
+              ...
+              db.all($Q, ...)
+          - pattern: |
+              const $Q = `...${$INPUT}...`;
+              ...
+              db.get($Q, ...)
+    message: "Injection SQL potentielle : variable interpolée directement dans une requête SQL via template literal. Utiliser des requêtes préparées avec des placeholders '?'."
     languages: [javascript]
     severity: ERROR
     metadata:
       cwe: CWE-89
       owasp: A03:2021
 
-  - id: hardcoded-secret
+  - id: xss-stored-unencoded-reflection
     patterns:
       - pattern: |
-          const $VAR = "$SECRET"
-      - metavariable-regex:
-          metavariable: $VAR
-          regex: (JWT_SECRET|API_KEY|STRIPE_KEY|PASSWORD|TOKEN)
+          const { $FIELD } = $REQ.body;
+          ...
+          $RES.json({ ..., $KEY: $FIELD });
+    message: "Réflexion d'une entrée utilisateur non encodée dans la réponse JSON — risque de XSS stocké si affiché tel quel côté client."
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-79
+      owasp: A03:2021
+
+  - id: hardcoded-jwt-secret
+    patterns:
+      - pattern-either:
+          - pattern: jwt.verify($TOKEN, "$SECRET")
+          - pattern: jwt.sign($PAYLOAD, "$SECRET", ...)
       - metavariable-regex:
           metavariable: $SECRET
-          regex: .{8,}
-    message: "Secret hardcodé détecté — utiliser les variables d'environnement"
+          regex: ^.{6,}$
+    message: "Secret JWT codé en dur dans l'appel jwt.verify/jwt.sign — utiliser process.env.JWT_SECRET."
     languages: [javascript]
     severity: ERROR
     metadata:
       cwe: CWE-798
+      owasp: A02:2021
+
+  - id: mass-assignment-req-body
+    patterns:
+      - pattern: const $UPDATES = $REQ.body;
+      - pattern-not: const $UPDATES = _.pick($REQ.body, ...);
+    message: "Mass assignment potentiel : req.body appliqué sans whitelist des champs autorisés."
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      cwe: CWE-915
+      owasp: A01:2021
 
   - id: idor-missing-user-check
-    pattern: |
-      db.get('SELECT * FROM orders WHERE id = ?', [$ID], ...)
-    message: "IDOR potentiel — vérifier que la ressource appartient à req.user.id"
+    patterns:
+      - pattern-either:
+          - pattern: db.get('SELECT * FROM orders WHERE id = ?', [$ID], ...)
+          - pattern: db.get('SELECT * FROM users WHERE id = ?', [$ID], ...)
+    message: "IDOR potentiel — vérifier que la ressource appartient à req.user.id avant de la retourner."
     languages: [javascript]
     severity: WARNING
     metadata:
