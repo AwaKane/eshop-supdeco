@@ -1,9 +1,13 @@
 # ✅ Dockerfile sécurisé — E-Shop Pro
 
-# ✅ Image de base pinnée (version exacte + variante alpine = surface d'attaque réduite et build reproductible)
-FROM node:18.20.4-alpine3.20
+# ✅ Image de base sur Node.js 24 (Active LTS en 2026) + Alpine actuellement maintenu
+FROM node:24-alpine
 
 WORKDIR /app
+
+# ✅ Applique les derniers correctifs de sécurité Alpine disponibles au moment du build
+# (défense en profondeur : couvre les CVE OS publiées après la sortie de l'image de base)
+RUN apk update && apk upgrade --no-cache
 
 # ✅ On copie d'abord uniquement les manifests : meilleur cache Docker, et on isole
 #    l'installation des dépendances du reste du code source
